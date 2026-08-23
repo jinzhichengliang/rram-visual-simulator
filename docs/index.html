@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RRAM Visual Simulator — V0.2</title>
+<style>
+:root { --bg:#0f1117; --s1:#1a1d27; --s2:#242836; --bd:#2e3348; --tx:#e1e4ed; --td:#8b90a5; --ac:#6c8cff; --gn:#4ade80; --rd:#f87171; --yl:#fbbf24; --or:#fb923c; --cy:#22d3ee; }
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'SF Mono','Cascadia Code','Fira Code',monospace;background:var(--bg);color:var(--tx);overflow-x:hidden}
+header{background:var(--s1);border-bottom:1px solid var(--bd);padding:12px 24px;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:16px;font-weight:600}
+.badge{background:#4a6ae0;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;margin-left:8px}
+.fid{display:inline-block;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;background:#422006;color:var(--or);margin-left:6px}
+.status{font-size:12px;color:var(--td)}
+.controls{background:var(--s1);padding:12px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--bd)}
+.btn{padding:6px 16px;border:1px solid var(--bd);border-radius:6px;background:var(--s2);color:var(--tx);font-family:inherit;font-size:12px;cursor:pointer;transition:all .15s}
+.btn:hover{background:var(--bd)}.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-f{border-color:var(--or);color:var(--or)}.btn-r{border-color:var(--cy);color:var(--cy)}
+.btn-s{border-color:var(--gn);color:var(--gn)}.btn-rs{border-color:var(--rd);color:var(--rd)}
+.sep{width:1px;height:24px;background:var(--bd)}
+.sbadge{padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600}
+.s-p{background:#374151;color:#9ca3af}.s-h{background:#7f1d1d;color:#fca5a5}.s-l{background:#14532d;color:#86efac}
+.timeline{background:var(--s1);padding:8px 24px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--bd)}
+.timeline input[type=range]{flex:1;-webkit-appearance:none;height:4px;background:var(--bd);border-radius:2px}
+.timeline input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--ac);cursor:pointer}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:1px;background:var(--bd)}
+.panel{background:var(--s1);padding:16px}
+.ptitle{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--td);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--gn)}
+.vsvg{width:100%;height:220px;border:1px solid var(--bd);border-radius:8px;background:var(--bg)}
+.wfc{width:100%;height:180px;border:1px solid var(--bd);border-radius:8px;background:var(--bg)}
+.span2{grid-column:1/-1}
+.expcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.expc{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px}
+.expt{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--ac);margin-bottom:8px}
+.expb{font-size:12px;line-height:1.6}
+.hl{color:var(--yl);font-weight:600}.hl-g{color:var(--gn)}.hl-r{color:var(--rd)}.hl-c{color:var(--cy)}
+.err{background:#7f1d1d;color:#fca5a5;padding:12px 24px;font-size:13px;display:none}
+@keyframes fR{from{stroke-dashoffset:20}to{stroke-dashoffset:0}}
+@keyframes fL{from{stroke-dashoffset:-20}to{stroke-dashoffset:0}}
+.cf{stroke-dasharray:6 4;animation:fR .6s linear infinite}
+.cfr{stroke-dasharray:6 4;animation:fL .6s linear infinite}
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center">
+    <h1>RRAM Visual Simulator</h1>
+    <span class="badge">V1.0 · Unified</span>
+    <span class="fid" id="modelBadge">F0</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <button class="btn" onclick="switchModel('F0')" id="btnF0" style="font-size:10px;padding:4px 10px">F0 Teaching</button>
+    <button class="btn" onclick="switchModel('F1')" id="btnF1" style="font-size:10px;padding:4px 10px">F1 Compact</button>
+    <div class="status" id="hdr">Pristine · Frame #0</div>
+  </div>
+</header>
+
+<div class="controls">
+  <button class="btn btn-f" onclick="doOp('FORMING')">Forming</button>
+  <button class="btn btn-r" onclick="doOp('READ')">Read</button>
+  <button class="btn btn-s" onclick="doOp('SET')">Set (Write 1)</button>
+  <button class="btn btn-rs" onclick="doOp('RESET')">Reset (Write 0)</button>
+  <div class="sep"></div>
+  <button class="btn" onclick="resetAll()">↺ Reset All</button>
+  <div class="sep"></div>
+  <div>State: <span class="sbadge s-p" id="stBadge">PRISTINE</span></div>
+  <div>Logic: <span id="logicVal" style="font-weight:500">—</span></div>
+  <div>Phase: <span id="phBadge" style="font-size:10px;background:var(--s2);padding:3px 8px;border-radius:3px;color:var(--td)">—</span></div>
+</div>
+
+<div class="timeline">
+  <span style="font-size:11px;color:var(--td)">Timeline</span>
+  <button class="btn" onclick="stepBack()" id="btnBack" disabled title="回退一帧">◂</button>
+  <input type="range" id="slider" min="0" max="0" value="0" oninput="scrub(+this.value)">
+  <button class="btn" onclick="stepForward()" id="btnForward" disabled title="前进一帧">▸</button>
+  <button class="btn" onclick="resetTimeline()" id="btnReset" disabled title="重置到第一帧">↺</button>
+  <span style="font-size:11px;color:var(--td);min-width:100px;text-align:right" id="tlLabel">Frame 0 / 0</span>
+</div>
+
+<div id="errBar" class="err"></div>
+
+<div class="grid">
+  <div class="panel">
+    <div class="ptitle"><span class="dot"></span>Device View — RRAM 两端发生了什么</div>
+    <svg class="vsvg" id="devSvg" viewBox="0 0 400 200"></svg>
+  </div>
+  <div class="panel">
+    <div class="ptitle"><span class="dot"></span>1T1R Cell View — BL / WL / SL 如何控制一个 bit</div>
+    <svg class="vsvg" id="cellSvg" viewBox="0 0 400 200"></svg>
+  </div>
+  <div class="panel">
+    <div class="ptitle"><span class="dot"></span>Array View — 4×4 阵列</div>
+    <svg class="vsvg" id="arrSvg" viewBox="0 0 400 200"></svg>
+  </div>
+  <div class="panel">
+    <div class="ptitle"><span class="dot"></span>Filament View — 导电细丝可视化</div>
+    <svg class="vsvg" id="filSvg" viewBox="0 0 400 220"></svg>
+  </div>
+  <div class="panel span2">
+    <div class="ptitle"><span class="dot"></span>Circuit View — 外围电路 (V0.3)</div>
+    <div id="circuitInfo" style="font-size:11px;line-height:1.8;color:var(--td)">
+      <div>WL Driver: <span id="wlDriver" style="color:var(--tx)">—</span></div>
+      <div>BL Driver: <span id="blDriver" style="color:var(--tx)">—</span></div>
+      <div>SL Driver: <span id="slDriver" style="color:var(--tx)">—</span></div>
+      <div>Sense Amp: <span id="senseAmp" style="color:var(--tx)">—</span></div>
+    </div>
+  </div>
+  <div class="panel span2">
+    <div class="ptitle"><span class="dot"></span>Diagnostics — 故障诊断 (V0.6)</div>
+    <div id="diagInfo" style="font-size:11px;line-height:1.8">
+      <div>Health: <span id="diagHealth" style="color:var(--gn)">—</span></div>
+      <div>Faults: <span id="diagFaults" style="color:var(--tx)">0</span></div>
+      <div>Recommendations: <span id="diagRecs" style="color:var(--td)">—</span></div>
+    </div>
+  </div>
+  <div class="panel span2">
+    <div class="ptitle"><span class="dot"></span>Waveform View — 时间维度因果证据</div>
+    <canvas class="wfc" id="wfCanvas"></canvas>
+    <div style="display:flex;gap:16px;margin-top:8px;font-size:11px">
+      <div style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#6c8cff;border-radius:1px"></span>V_RRAM (V)</div>
+      <div style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#4ade80;border-radius:1px"></span>I_RRAM (µA)</div>
+      <div style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#fbbf24;border-radius:1px"></span>R (kΩ)</div>
+    </div>
+  </div>
+  <div class="panel span2">
+    <div class="ptitle"><span class="dot"></span>三问解释器 — 每一步同时回答</div>
+    <div class="expcards">
+      <div class="expc"><div class="expt">① 施加了什么电压？</div><div class="expb" id="expV">等待操作…</div></div>
+      <div class="expc"><div class="expt">② 电流从哪里流？</div><div class="expb" id="expC">等待操作…</div></div>
+      <div class="expc"><div class="expt">③ 器件内部为什么变化？</div><div class="expb" id="expP">等待操作…</div></div>
+      <div class="expc"><div class="expt">④ 系统如何知道操作成功？</div><div class="expb" id="expS">等待操作…</div></div>
+    </div>
+  </div>
+  <div class="panel span2">
+    <div class="ptitle"><span class="dot"></span>Learning System — 学习系统 (V0.9)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:11px">
+      <div>
+        <div style="color:var(--td);margin-bottom:8px">进度追踪</div>
+        <div>预测次数: <span id="learnTotal" style="color:var(--tx)">0</span></div>
+        <div>正确次数: <span id="learnCorrect" style="color:var(--gn)">0</span></div>
+        <div>准确率: <span id="learnAccuracy" style="color:var(--yl)">0%</span></div>
+        <div>薄弱领域: <span id="learnWeak" style="color:var(--rd)">—</span></div>
+      </div>
+      <div>
+        <div style="color:var(--td);margin-bottom:8px">成就徽章</div>
+        <div id="learnBadges" style="color:var(--tx)">暂无徽章</div>
+        <div style="margin-top:12px">
+          <button class="btn" onclick="loadNextScenario()" style="font-size:10px;padding:4px 10px">下一个学习场景</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+
+
+let frames = [];
+let curIdx = 0;
+
+// ═══════════════════════════════════════════════════════
+// API Client — single source of truth
+// ═══════════════════════════════════════════════════════
+
+function doOp(op) {
+  try {
+    hideErr();
+    const newFrames = executeOperation(op, { row: 0, col: 0 });
+    frames = frames.concat(newFrames);
+    curIdx = frames.length - newFrames.length + 2;
+    render();
+  } catch(e) {
+    showErr(`操作失败: ${e.message}`);
+  }
+}
+
+function resetAll() {
+  try {
+    hideErr();
+    resetSimulation();
+    frames = [];
+    curIdx = 0;
+    render();
+  } catch(e) {
+    showErr(`重置失败: ${e.message}`);
+  }
+}
+
+// V0.7: Model switching
+async function switchModel(model) {
+  try {
+    hideErr();
+    const res = await fetch(`${API}/api/model`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({model: model})
+    });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    document.getElementById('modelBadge').textContent = model;
+    document.getElementById('btnF0').style.background = model === 'F0' ? 'var(--ac)' : 'var(--s2)';
+    document.getElementById('btnF1').style.background = model === 'F1' ? 'var(--ac)' : 'var(--s2)';
+    showErr(`已切换到 ${model} 模型`);
+    setTimeout(hideErr, 2000);
+  } catch(e) {
+    showErr(`模型切换失败: ${e.message}`);
+  }
+}
+
+// V0.9: Learning system
+async function loadNextScenario() {
+  try {
+    hideErr();
+    const res = await fetch(`${API}/api/learning/scenario/next`);
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    const data = await res.json();
+    if (data.scenario) {
+      showErr(`学习场景: ${data.scenario.title} - ${data.scenario.description}`);
+      setTimeout(hideErr, 5000);
+    } else {
+      showErr(data.message || '没有更多场景');
+      setTimeout(hideErr, 3000);
+    }
+  } catch(e) {
+    showErr(`加载场景失败: ${e.message}`);
+  }
+}
+
+async function updateLearningProgress() {
+  try {
+    const res = await fetch(`${API}/api/learning/progress`);
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('learnTotal').textContent = data.summary.predictions_total;
+    document.getElementById('learnCorrect').textContent = data.summary.predictions_correct;
+    document.getElementById('learnAccuracy').textContent = data.summary.accuracy.toFixed(1) + '%';
+    document.getElementById('learnWeak').textContent = data.weak_areas.length > 0 ? data.weak_areas.join(', ') : '—';
+    document.getElementById('learnBadges').textContent = data.badges.length > 0 ? data.badges.join(' | ') : '暂无徽章';
+  } catch(e) {
+    // Silent fail for learning progress
+  }
+}
+
+function stepBack() {
+  if (curIdx > 0) { curIdx--; render(); }
+}
+
+function stepForward() {
+  if (curIdx < frames.length - 1) { curIdx++; render(); }
+}
+
+function resetTimeline() {
+  if (frames.length > 0) { curIdx = 0; render(); }
+}
+
+function scrub(idx) {
+  if (idx >= 0 && idx < frames.length) { curIdx = idx; renderFrame(); }
+}
+
+function showErr(msg) { const el = document.getElementById('errBar'); el.textContent = msg; el.style.display = 'block'; }
+function hideErr() { document.getElementById('errBar').style.display = 'none'; }
+
+// ═══════════════════════════════════════════════════════
+// Render — all views from same FrameState
+// ═══════════════════════════════════════════════════════
+
+function render() {
+  const sl = document.getElementById('slider');
+  sl.max = Math.max(0, frames.length - 1);
+  sl.value = curIdx;
+  // Update timeline button states
+  document.getElementById('btnBack').disabled = curIdx <= 0;
+  document.getElementById('btnForward').disabled = curIdx >= frames.length - 1;
+  document.getElementById('btnReset').disabled = frames.length === 0 || curIdx === 0;
+  renderFrame();
+}
+
+function renderFrame() {
+  if (frames.length === 0) { renderEmpty(); return; }
+  const f = frames[curIdx];
+  const prev = curIdx > 0 ? frames[curIdx - 1] : null;
+
+  // Header
+  const st = f.cell.rram.state;
+  document.getElementById('hdr').textContent = `${f.operation} · ${f.phase} · Frame #${curIdx+1}`;
+
+  // State badge
+  const badge = document.getElementById('stBadge');
+  badge.textContent = st;
+  badge.className = 'sbadge ' + (st==='LRS'?'s-l':st==='HRS'?'s-h':'s-p');
+
+  // Logic
+  document.getElementById('logicVal').textContent = st==='LRS'?'1':st==='HRS'?'0':'—';
+
+  // Phase
+  document.getElementById('phBadge').textContent = f.phase;
+
+  // Timeline
+  document.getElementById('tlLabel').textContent = `Frame ${curIdx+1} / ${frames.length}`;
+  document.getElementById('btnBack').disabled = curIdx <= 0;
+
+  // All views from same FrameState
+  drawDevice(f);
+  drawCell(f);
+  drawArray(f);
+  drawFilament(f);
+  drawWaveform(curIdx);
+  drawExplanation(f, prev);
+  
+  // V0.3: Update Circuit View
+  if (f.peripheral) {
+    const p = f.peripheral;
+    document.getElementById('wlDriver').textContent = 
+      `WL${p.wl_driver.selected} = ${p.wl_driver.voltages[p.wl_driver.selected]?.toFixed(1) || 0}V ${p.wl_driver.active ? '(Active)' : ''}`;
+    document.getElementById('blDriver').textContent = 
+      `BL${p.bl_driver.selected} = ${p.bl_driver.voltages[p.bl_driver.selected]?.toFixed(1) || 0}V ${p.bl_driver.active ? '(Active)' : ''}`;
+    document.getElementById('slDriver').textContent = 
+      `SL${p.sl_driver.selected} = ${p.sl_driver.voltages[p.sl_driver.selected]?.toFixed(1) || 0}V`;
+    document.getElementById('senseAmp').textContent = 
+      p.sense_amp ? `I=${p.sense_amp.decision} margin=${p.sense_amp.margin_ua?.toFixed(2) || 0}µA` : '—';
+  }
+  
+  // V0.6: Update diagnostics
+  if (f.diagnostics) {
+    const d = f.diagnostics;
+    const healthEl = document.getElementById('diagHealth');
+    healthEl.textContent = d.health;
+    healthEl.style.color = d.health === 'healthy' ? 'var(--gn)' : d.health === 'warning' ? 'var(--yl)' : 'var(--rd)';
+    document.getElementById('diagFaults').textContent = d.faults.length;
+    document.getElementById('diagRecs').textContent = d.recommendations.length > 0 ? d.recommendations[0] : '—';
+  }
+}
+
+function renderEmpty() {
+  document.getElementById('stBadge').textContent = 'PRISTINE';
+  document.getElementById('stBadge').className = 'sbadge s-p';
+  document.getElementById('logicVal').textContent = '—';
+  document.getElementById('phBadge').textContent = '—';
+  document.getElementById('hdr').textContent = 'Pristine · Frame #0';
+  document.getElementById('tlLabel').textContent = 'Frame 0 / 0';
+  document.getElementById('btnBack').disabled = true;
+  document.getElementById('btnForward').disabled = true;
+  document.getElementById('btnReset').disabled = true;
+  ['expV','expC','expP','expS'].forEach(id => document.getElementById(id).innerHTML = '等待操作…');
+  
+  // Reset Circuit View
+  document.getElementById('wlDriver').textContent = '—';
+  document.getElementById('blDriver').textContent = '—';
+  document.getElementById('slDriver').textContent = '—';
+  document.getElementById('senseAmp').textContent = '—';
+  
+  // Reset diagnostics
+  document.getElementById('diagHealth').textContent = '—';
+  document.getElementById('diagFaults').textContent = '0';
+  document.getElementById('diagRecs').textContent = '—';
+  
+  drawDevice(emptyFrame());
+  drawCell(emptyFrame());
+  drawArray(emptyFrame());
+  drawFilament(emptyFrame());
+  drawWaveform(-1);
+  
+  // Update learning progress
+  updateLearningProgress();
+}
+
+function emptyFrame() {
+  return {operation:'PRISTINE',phase:'PREPARE',nodes:{wl:[0],bl:[0],sl:[0]},
+    cell:{transistor:{vg:0,vs:0,vd:0,on:false},rram:{v:0,i:0,r:1e9,state:'PRISTINE',formingDone:false}},
+    model:{fidelity:'F0',profileId:'bipolar_teaching_v1',profileVersion:'1.0.0',seed:42},
+    checks:[]};
+}
+
+// ═══════════════════════════════════════════════════════
+// Device View — reads ACTUAL frame values
+// ═══════════════════════════════════════════════════════
+
+function drawDevice(f) {
+  const v = f.cell.rram.v, i = f.cell.rram.i, r = f.cell.rram.r, st = f.cell.rram.state;
+  const fc = st==='LRS'?'#4ade80':st==='HRS'?'#f87171':'#6b7280';
+  const fo = st==='LRS'?0.8:st==='HRS'?0.2:0.4;
+  const cf = Math.abs(i) > 0.1;
+  const cd = i > 0;
+  const cw = Math.min(4, Math.max(1, Math.abs(i)/10));
+  const cc = cd ? '#4ade80' : '#f87171';
+  const pa = v > 0.001 ? '↓' : v < -0.001 ? '↑' : '—';
+  const pc = v > 0.001 ? '#4ade80' : v < -0.001 ? '#f87171' : '#6b7280';
+  const rds = r >= 1e6 ? (r/1e6).toFixed(1)+' MΩ' : (r/1e3).toFixed(1)+' kΩ';
+
+  let cfSvg = '';
+  if (cf) {
+    const cls = cd ? 'cf' : 'cfr';
+    cfSvg = `<line x1="200" y1="30" x2="200" y2="75" stroke="${cc}" stroke-width="${cw}" class="${cls}" opacity="0.8"/>
+             <line x1="200" y1="105" x2="200" y2="155" stroke="${cc}" stroke-width="${cw}" class="${cls}" opacity="0.8"/>`;
+  }
+
+  document.getElementById('devSvg').innerHTML = `
+    <rect width="400" height="200" fill="#0f1117" rx="8"/>
+    <rect x="150" y="20" width="100" height="16" rx="3" fill="#4b5563" stroke="#6b7280"/>
+    <text x="200" y="14" text-anchor="middle" fill="#9ca3af" font-size="10">BL (Top)</text>
+    <rect x="155" y="46" width="90" height="50" rx="4" fill="#1e1b4b" stroke="#4338ca" opacity="0.6"/>
+    <text x="200" y="68" text-anchor="middle" fill="#818cf8" font-size="9">Switching Layer</text>
+    <line x1="200" y1="50" x2="200" y2="92" stroke="${fc}" stroke-width="${st==='LRS'?8:4}" opacity="${fo}" stroke-linecap="round"/>
+    ${st==='HRS'?'<circle cx="200" cy="72" r="5" fill="none" stroke="#f87171" stroke-width="1.5" stroke-dasharray="2 2"/>':''}
+    <rect x="150" y="106" width="100" height="16" rx="3" fill="#4b5563" stroke="#6b7280"/>
+    <text x="200" y="136" text-anchor="middle" fill="#9ca3af" font-size="10">Bottom</text>
+    ${cfSvg}
+    <text x="280" y="72" fill="${pc}" font-size="14" font-weight="bold">${pa}</text>
+    <text x="300" y="68" fill="${pc}" font-size="10">V_RRAM</text>
+    <text x="300" y="80" fill="${pc}" font-size="11" font-weight="600">${v.toFixed(2)} V</text>
+    <text x="60" y="60" fill="#e1e4ed" font-size="10">I_RRAM</text>
+    <text x="60" y="74" fill="#4ade80" font-size="12" font-weight="600">${i.toFixed(1)} µA</text>
+    <text x="60" y="94" fill="#e1e4ed" font-size="10">R_RRAM</text>
+    <text x="60" y="108" fill="#fbbf24" font-size="12" font-weight="600">${rds}</text>
+    <rect x="155" y="155" width="90" height="22" rx="4" fill="${st==='LRS'?'#14532d':st==='HRS'?'#7f1d1d':'#374151'}"/>
+    <text x="200" y="170" text-anchor="middle" fill="${st==='LRS'?'#86efac':st==='HRS'?'#fca5a5':'#9ca3af'}" font-size="12" font-weight="700">${st}</text>
+    <text x="200" y="196" text-anchor="middle" fill="#8b90a5" font-size="10">${f.operation} · ${f.phase}</text>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// Cell View — reads ACTUAL frame values
+// ═══════════════════════════════════════════════════════
+
+function drawCell(f) {
+  const on = f.cell.transistor.on;
+  const wl = f.nodes.wl[0]||0, bl = f.nodes.bl[0]||0, sl = f.nodes.sl[0]||0;
+  const v = f.cell.rram.v, i = f.cell.rram.i;
+  const nmC = on ? '#4ade80' : '#6b7280';
+  const cf = Math.abs(i) > 0.1;
+  const cd = i > 0;
+  const cw = Math.min(3, Math.max(1, Math.abs(i)/15));
+  const cc = cd ? '#4ade80' : '#f87171';
+
+  let animSvg = '';
+  if (cf) {
+    const cls = cd ? 'cf' : 'cfr';
+    animSvg = `
+      <line x1="80" y1="50" x2="160" y2="50" stroke="${cc}" stroke-width="${cw}" class="${cls}" opacity="0.7"/>
+      <line x1="160" y1="50" x2="160" y2="75" stroke="${cc}" stroke-width="${cw}" class="${cls}" opacity="0.7"/>
+      <line x1="160" y1="105" x2="160" y2="130" stroke="${cc}" stroke-width="${cw}" class="${cls}" opacity="0.7"/>
+      <line x1="160" y1="130" x2="260" y2="130" stroke="${cc}" stroke-width="${cw}" class="${cls}" opacity="0.7"/>`;
+  }
+
+  document.getElementById('cellSvg').innerHTML = `
+    <rect width="400" height="200" fill="#0f1117" rx="8"/>
+    <line x1="40" y1="50" x2="160" y2="50" stroke="#4b5563" stroke-width="2"/>
+    <text x="30" y="54" fill="#9ca3af" font-size="11" text-anchor="end">BL</text>
+    <text x="30" y="66" fill="${bl!==0?'#fbbf24':'#6b7280'}" font-size="10" text-anchor="end">${bl.toFixed(1)}V</text>
+    <rect x="140" y="72" width="40" height="36" rx="4" fill="#1e1b4b" stroke="#4338ca" stroke-width="1.5"/>
+    <text x="160" y="94" text-anchor="middle" fill="#818cf8" font-size="10" font-weight="600">RRAM</text>
+    <line x1="160" y1="50" x2="160" y2="72" stroke="#4b5563" stroke-width="2"/>
+    <circle cx="160" cy="50" r="3" fill="${cf?'#4ade80':'#4b5563'}"/>
+    <line x1="160" y1="108" x2="160" y2="130" stroke="#4b5563" stroke-width="2"/>
+    <rect x="138" y="126" width="44" height="28" rx="4" fill="#1a1d27" stroke="${nmC}" stroke-width="1.5"/>
+    <text x="160" y="144" text-anchor="middle" fill="${nmC}" font-size="10" font-weight="600">NMOS</text>
+    <line x1="80" y1="140" x2="138" y2="140" stroke="#4b5563" stroke-width="2"/>
+    <text x="30" y="144" fill="#9ca3af" font-size="11" text-anchor="end">WL</text>
+    <text x="30" y="156" fill="${wl!==0?'#fbbf24':'#6b7280'}" font-size="10" text-anchor="end">${wl.toFixed(1)}V</text>
+    <circle cx="138" cy="140" r="${on?4:3}" fill="${on?'#4ade80':'#6b7280'}"/>
+    <line x1="160" y1="154" x2="260" y2="154" stroke="#4b5563" stroke-width="2"/>
+    <line x1="260" y1="130" x2="260" y2="154" stroke="#4b5563" stroke-width="2"/>
+    <text x="280" y="145" fill="#9ca3af" font-size="11">SL</text>
+    <text x="280" y="157" fill="${sl!==0?'#fbbf24':'#6b7280'}" font-size="10">${sl.toFixed(1)}V</text>
+    ${animSvg}
+    <rect x="240" y="30" width="70" height="20" rx="4" fill="${on?'#14532d':'#374151'}"/>
+    <text x="275" y="44" text-anchor="middle" fill="${on?'#86efac':'#9ca3af'}" font-size="10" font-weight="600">${on?'NMOS ON':'NMOS OFF'}</text>
+    <text x="240" y="70" fill="#e1e4ed" font-size="10">V_RRAM:</text>
+    <text x="300" y="70" fill="${v>0?'#4ade80':v<0?'#f87171':'#6b7280'}" font-size="11" font-weight="600">${v.toFixed(2)} V</text>
+    <text x="240" y="88" fill="#e1e4ed" font-size="10">I_RRAM:</text>
+    <text x="300" y="88" fill="#4ade80" font-size="11" font-weight="600">${i.toFixed(1)} µA</text>
+    <text x="200" y="188" text-anchor="middle" fill="#8b90a5" font-size="9">BL → RRAM → NMOS → SL · WL → Gate</text>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// Array View — reads ACTUAL frame values
+// ═══════════════════════════════════════════════════════
+
+function drawArray(f) {
+  const sr = f.selectedCell?.row ?? 0, sc = f.selectedCell?.col ?? 0;
+  const st = f.cell.rram.state;
+  const cs = 35, gap = 8, ox = 60, oy = 30;
+  let cells = '';
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      const x = ox + c*(cs+gap), y = oy + r*(cs+gap);
+      const sel = r===sr && c===sc;
+      const color = sel ? (st==='LRS'?'#4ade80':st==='HRS'?'#f87171':'#6b7280') : '#2e3348';
+      cells += `<rect x="${x}" y="${y}" width="${cs}" height="${cs}" rx="3" fill="${sel?color:'#181c25'}" stroke="${sel?'#6c8cff':'#2e3348'}" stroke-width="${sel?2:1}"/>`;
+      if (sel) cells += `<text x="${x+cs/2}" y="${y+cs/2+4}" text-anchor="middle" fill="#0f1117" font-size="9" font-weight="700">${st}</text>`;
+    }
+  }
+  // WL/BL lines
+  let lines = '';
+  for (let r = 0; r < 4; r++) {
+    const y = oy + r*(cs+gap) + cs/2;
+    const v = f.nodes.wl[r] || 0;
+    const hl = r === sr;
+    lines += `<line x1="${ox-15}" y1="${y}" x2="${ox+4*(cs+gap)-gap}" y2="${y}" stroke="${hl?'#fbbf24':'#4b5563'}" stroke-width="${hl?2:1}" opacity="${hl?1:0.4}"/>`;
+    lines += `<text x="${ox-20}" y="${y+4}" text-anchor="end" fill="${hl?'#fbbf24':'#8b90a5'}" font-size="9">${hl?'WL'+r+' '+v.toFixed(1)+'V':'WL'+r}</text>`;
+  }
+  for (let c = 0; c < 4; c++) {
+    const x = ox + c*(cs+gap) + cs/2;
+    const v = f.nodes.bl[c] || 0;
+    const hl = c === sc;
+    lines += `<line x1="${x}" y1="${oy-15}" x2="${x}" y2="${oy+4*(cs+gap)-gap}" stroke="${hl?'#22d3ee':'#4b5563'}" stroke-width="${hl?2:1}" opacity="${hl?1:0.4}"/>`;
+    lines += `<text x="${x}" y="${oy-20}" text-anchor="middle" fill="${hl?'#22d3ee':'#8b90a5'}" font-size="9">BL${c}</text>`;
+  }
+  document.getElementById('arrSvg').innerHTML = `
+    <rect width="400" height="200" fill="#0f1117" rx="8"/>
+    ${lines}${cells}
+    <text x="200" y="195" text-anchor="middle" fill="#8b90a5" font-size="9">Selected: (${sr},${sc}) · ${f.operation} · ${f.phase}</text>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// Filament View — visualizes conductive filament
+// ═══════════════════════════════════════════════════════
+
+function drawFilament(f) {
+  const rram = f.cell.rram;
+  const state = rram.state;
+  const fidelity = f.model.fidelity;
+  const gapNm = rram.gapNm;
+  const filamentProxy = rram.filamentProxy;
+  const temperatureK = rram.temperatureK;
+  
+  // Visualization parameters
+  let filamentWidth, filamentOpacity, filamentColor, showGap, gapSize;
+  
+  if (fidelity === 'F0' || gapNm === null || filamentProxy === null) {
+    // F0: Conceptual visualization
+    filamentWidth = state === 'LRS' ? 0.8 : state === 'HRS' ? 0.2 : 0.4;
+    filamentOpacity = state === 'LRS' ? 0.9 : state === 'HRS' ? 0.3 : 0.5;
+    filamentColor = state === 'LRS' ? '#4ade80' : state === 'HRS' ? '#f87171' : '#6b7280';
+    showGap = false;
+    gapSize = 0;
+  } else {
+    // F1+: Parameterized visualization
+    const maxGapNm = 10.0;
+    const normalizedGap = Math.min(1.0, gapNm / maxGapNm);
+    filamentWidth = Math.max(0.1, 1.0 - normalizedGap);
+    filamentOpacity = Math.max(0.2, filamentProxy);
+    
+    if (filamentProxy > 0.7) {
+      filamentColor = '#4ade80'; // Green for LRS
+    } else if (filamentProxy > 0.3) {
+      filamentColor = '#fbbf24'; // Yellow for intermediate
+    } else {
+      filamentColor = '#f87171'; // Red for HRS
+    }
+    
+    showGap = true;
+    gapSize = normalizedGap;
+  }
+  
+  // Layout
+  const width = 400, height = 220;
+  const electrodeWidth = 120, electrodeHeight = 20;
+  const electrodeX = (width - electrodeWidth) / 2;
+  const topElectrodeY = 30;
+  const bottomElectrodeY = height - 50;
+  
+  const layerWidth = 100, layerHeight = bottomElectrodeY - topElectrodeY - electrodeHeight;
+  const layerX = (width - layerWidth) / 2;
+  const layerY = topElectrodeY + electrodeHeight;
+  
+  const filamentMaxWidth = 30;
+  const filamentActualWidth = filamentMaxWidth * filamentWidth;
+  const filamentX = width / 2 - filamentActualWidth / 2;
+  
+  // Gap visualization
+  const gapHeight = showGap ? layerHeight * gapSize * 0.3 : 0;
+  const gapY = layerY + layerHeight / 2 - gapHeight / 2;
+  
+  let svg = `<rect width="${width}" height="${height}" fill="#0f1117" rx="8"/>`;
+  
+  // Top electrode
+  svg += `<rect x="${electrodeX}" y="${topElectrodeY}" width="${electrodeWidth}" height="${electrodeHeight}" rx="3" fill="#4b5563" stroke="#6b7280" stroke-width="1"/>`;
+  svg += `<text x="${width/2}" y="${topElectrodeY - 8}" text-anchor="middle" fill="#9ca3af" font-size="10">Top Electrode (BL)</text>`;
+  
+  // Switching layer
+  svg += `<rect x="${layerX}" y="${layerY}" width="${layerWidth}" height="${layerHeight}" rx="4" fill="#1e1b4b" stroke="#4338ca" stroke-width="1" opacity="0.6"/>`;
+  svg += `<text x="${width/2}" y="${layerY + 15}" text-anchor="middle" fill="#818cf8" font-size="9">Switching Layer</text>`;
+  
+  // Conductive filament
+  svg += `<rect x="${filamentX}" y="${layerY}" width="${filamentActualWidth}" height="${layerHeight}" rx="2" fill="${filamentColor}" opacity="${filamentOpacity}"/>`;
+  
+  // Gap visualization (F1 only)
+  if (showGap && gapHeight > 2) {
+    svg += `<rect x="${layerX + 10}" y="${gapY}" width="${layerWidth - 20}" height="${gapHeight}" fill="#0f1117" opacity="0.8"/>`;
+    svg += `<text x="${width/2}" y="${gapY + gapHeight/2 + 3}" text-anchor="middle" fill="#f87171" font-size="8" font-weight="600">Gap: ${gapNm.toFixed(1)}nm</text>`;
+  }
+  
+  // Bottom electrode
+  svg += `<rect x="${electrodeX}" y="${bottomElectrodeY}" width="${electrodeWidth}" height="${electrodeHeight}" rx="3" fill="#4b5563" stroke="#6b7280" stroke-width="1"/>`;
+  svg += `<text x="${width/2}" y="${bottomElectrodeY + electrodeHeight + 15}" text-anchor="middle" fill="#9ca3af" font-size="10">Bottom Electrode (SL)</text>`;
+  
+  // State label
+  const stateColor = state === 'LRS' ? '#4ade80' : state === 'HRS' ? '#f87171' : '#6b7280';
+  const formingText = rram.formingDone ? '(Formed)' : '(Unformed)';
+  svg += `<text x="${width/2}" y="${height - 10}" text-anchor="middle" fill="${stateColor}" font-size="12" font-weight="700">${state} ${formingText}</text>`;
+  
+  // Fidelity badge
+  const badgeColor = fidelity === 'F0' ? '#422006' : '#14532d';
+  const badgeText = fidelity === 'F0' ? '#fb923c' : '#4ade80';
+  svg += `<rect x="${width - 50}" y="10" width="40" height="18" rx="3" fill="${badgeColor}"/>`;
+  svg += `<text x="${width - 30}" y="23" text-anchor="middle" fill="${badgeText}" font-size="10" font-weight="700">${fidelity}</text>`;
+  
+  // Observables (F1 only)
+  if (fidelity !== 'F0') {
+    svg += `<text x="20" y="30" fill="#8b90a5" font-size="9">gap_nm:</text>`;
+    svg += `<text x="70" y="30" fill="#e1e4ed" font-size="9" font-weight="600">${gapNm !== null ? gapNm.toFixed(2) : 'N/A'} nm</text>`;
+    
+    svg += `<text x="20" y="45" fill="#8b90a5" font-size="9">filament:</text>`;
+    svg += `<text x="70" y="45" fill="#e1e4ed" font-size="9" font-weight="600">${filamentProxy !== null ? filamentProxy.toFixed(2) : 'N/A'}</text>`;
+    
+    if (temperatureK !== null) {
+      svg += `<text x="20" y="60" fill="#8b90a5" font-size="9">temp:</text>`;
+      svg += `<text x="70" y="60" fill="#e1e4ed" font-size="9" font-weight="600">${temperatureK.toFixed(0)} K</text>`;
+    }
+  }
+  
+  // F0 disclaimer
+  if (fidelity === 'F0') {
+    svg += `<text x="${width/2}" y="${height - 25}" text-anchor="middle" fill="#6b7280" font-size="8" font-style="italic">Conceptual visualization — not to physical scale</text>`;
+  }
+  
+  document.getElementById('filSvg').innerHTML = svg;
+}
+
+// ═══════════════════════════════════════════════════════
+// Waveform — reads ACTUAL frame history
+// ═══════════════════════════════════════════════════════
+
+function drawWaveform(idx) {
+  const canvas = document.getElementById('wfCanvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  ctx.fillStyle = '#0f1117'; ctx.fillRect(0, 0, W, H);
+
+  if (frames.length === 0) {
+    ctx.fillStyle = '#8b90a5'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('等待操作 — 波形将在操作后显示', W/2, H/2);
+    return;
+  }
+
+  const pad = {t:20,r:20,b:30,l:50};
+  const pW = W-pad.l-pad.r, pH = H-pad.t-pad.b;
+  const n = frames.length;
+  const xS = pW / Math.max(1, n-1);
+
+  const vs = frames.map(f=>f.cell.rram.v), cs = frames.map(f=>f.cell.rram.i), rs = frames.map(f=>f.cell.rram.r/1000);
+  const vM = Math.max(0.5, ...vs.map(Math.abs))*1.2;
+  const iM = Math.max(5, ...cs.map(Math.abs))*1.2;
+  const rM = Math.max(10, ...rs)*1.1;
+
+  // Grid
+  ctx.strokeStyle = '#1e2030'; ctx.lineWidth = 0.5;
+  for (let y = 0; y <= 4; y++) { const yy = pad.t+(pH/4)*y; ctx.beginPath(); ctx.moveTo(pad.l,yy); ctx.lineTo(W-pad.r,yy); ctx.stroke(); }
+
+  function drawLine(data, maxV, color, dash) {
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash(dash?[4,3]:[]);
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) { const x = pad.l+i*xS, y = pad.t+pH/2-(data[i]/maxV)*(pH/2); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); }
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  drawLine(vs, vM, '#6c8cff', false);
+  drawLine(cs, iM, '#4ade80', false);
+  drawLine(rs, rM, '#fbbf24', true);
+
+  // Cursor
+  if (idx >= 0 && idx < n) {
+    const cx = pad.l + idx*xS;
+    ctx.strokeStyle = '#ffffff40'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(cx,pad.t); ctx.lineTo(cx,pad.t+pH); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#6c8cff'; ctx.beginPath(); ctx.arc(cx, pad.t+pH/2-(vs[idx]/vM)*(pH/2), 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#4ade80'; ctx.beginPath(); ctx.arc(cx, pad.t+pH/2-(cs[idx]/iM)*(pH/2), 4, 0, Math.PI*2); ctx.fill();
+  }
+
+  // Labels
+  ctx.fillStyle = '#8b90a5'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+  for (let i = 0; i < n; i += Math.max(1,Math.floor(n/8))) ctx.fillText(frames[i].timeNs+'ns', pad.l+i*xS, H-8);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#6c8cff'; ctx.fillText('+'+vM.toFixed(1)+'V', pad.l-4, pad.t+4);
+  ctx.fillText('-'+vM.toFixed(1)+'V', pad.l-4, pad.t+pH);
+  ctx.fillStyle = '#8b90a5'; ctx.fillText('0', pad.l-4, pad.t+pH/2+3);
+  ctx.textAlign = 'center'; ctx.font = '8px monospace'; ctx.fillStyle = '#6b728080';
+  for (let i = 0; i < n; i++) ctx.fillText(frames[i].phase.substring(0,3), pad.l+i*xS, pad.t-6);
+}
+
+// ═══════════════════════════════════════════════════════
+// Explanation Engine — reads ACTUAL frame values
+// Compares current frame with PREVIOUS frame to detect
+// real state transitions. Never guesses from operation.
+// ═══════════════════════════════════════════════════════
+
+function drawExplanation(f, prev) {
+  const v = f.cell.rram.v, i = f.cell.rram.i, st = f.cell.rram.state;
+  const on = f.cell.transistor.on;
+  const wl = f.nodes.wl[0]||0, bl = f.nodes.bl[0]||0, sl = f.nodes.sl[0]||0;
+  const sense = f.sense;
+  const prevSt = prev ? prev.cell.rram.state : null;
+  const justChanged = prevSt !== null && prevSt !== st;
+
+  // ── Q1: Voltage ──
+  let q1 = '';
+  if (['PREPARE','RELEASE','COMPLETE'].includes(f.phase)) {
+    q1 = `WL=0V, BL=0V, SL=0V — <span class="hl">无有效偏置</span>，V_RRAM = 0V。`;
+  } else {
+    const pd = v > 0.001 ? '正向（BL > SL）' : v < -0.001 ? '反向（BL < SL）' : '零';
+    q1 = `WL=<span class="hl">${wl.toFixed(1)}V</span>，BL=<span class="hl">${bl.toFixed(1)}V</span>，SL=<span class="hl">${sl.toFixed(1)}V</span>。<br>`;
+    q1 += `V_RRAM = <span class="hl">${v.toFixed(2)}V</span>，极性：${pd}。`;
+    if (f.operation === 'FORMING') q1 += `<br>当前为 <span class="hl" style="color:var(--or)">Forming</span> 操作。`;
+    else if (f.operation === 'READ') q1 += `<br>当前为 <span class="hl-c">Read</span> 操作，电压低于写入阈值。`;
+    else if (f.operation === 'SET') q1 += `<br>当前为 <span class="hl-g">SET（写1）</span>操作。`;
+    else if (f.operation === 'RESET') q1 += `<br>当前为 <span class="hl-r">RESET（写0）</span>操作。`;
+  }
+
+  // ── Q2: Current ──
+  let q2 = '';
+  if (!on) {
+    q2 = `NMOS <span class="hl-r">截止</span>（Vgs < Vth），<span class="hl">无有效电流路径</span>。<br>I_RRAM ≈ 0。`;
+  } else if (Math.abs(i) < 0.01) {
+    q2 = `NMOS 导通，但 V_RRAM ≈ 0，电流极小（${i.toFixed(2)} µA）。`;
+  } else {
+    const dir = i > 0 ? 'BL → RRAM → NMOS → SL' : 'SL → NMOS → RRAM → BL';
+    q2 = `电流路径：<span class="hl">${dir}</span>。<br>I_RRAM = <span class="hl-g">${i.toFixed(1)} µA</span>。`;
+  }
+
+  // ── Q3: Physics — based on ACTUAL state diff ──
+  let q3 = '';
+  if (['PREPARE','RELEASE','COMPLETE'].includes(f.phase)) {
+    q3 = `无有效偏置，器件状态保持（<span class="hl">${st}</span>）。`;
+  } else if (f.phase === 'BIAS_RAMP') {
+    q3 = `偏置已施加（V_RRAM=${v.toFixed(2)}V），正在建立电场。当前状态仍为 <span class="hl">${st}</span>。`;
+  } else if (justChanged) {
+    // ACTUAL state transition detected by comparing with previous frame
+    if (prevSt === 'PRISTINE' && st === 'LRS') {
+      q3 = `<span class="hl" style="color:var(--or)">Forming 完成！</span>首次建立导电通路。缺陷/离子重新分布，导电细丝形成。<br>状态：<span class="hl-r">PRISTINE</span> → <span class="hl-g">LRS</span>。`;
+    } else if (prevSt === 'HRS' && st === 'LRS') {
+      q3 = `V_RRAM = ${v.toFixed(2)}V 满足 SET 条件，导电细丝重新接通，gap 缩小。<br>状态：<span class="hl-r">HRS</span> → <span class="hl-g">LRS</span>。`;
+    } else if (prevSt === 'LRS' && st === 'HRS') {
+      q3 = `V_RRAM = ${v.toFixed(2)}V 满足 RESET 条件，导电细丝断裂，gap 增大。<br>状态：<span class="hl-g">LRS</span> → <span class="hl-r">HRS</span>。`;
+    } else {
+      q3 = `状态发生变化：${prevSt} → ${st}。`;
+    }
+  } else if (f.operation === 'READ' && on && Math.abs(i) >= 0.01) {
+    q3 = `V_RRAM = ${v.toFixed(2)}V，低于写入阈值。<br>产生读电流 <span class="hl-c">${i.toFixed(2)} µA</span> 用于感测，但电场不足以引起状态转移。<br>器件状态保持（<span class="hl">${st}</span>）——<span class="hl">非破坏性读取</span>。`;
+  } else if (on && !justChanged) {
+    q3 = `V_RRAM = ${v.toFixed(2)}V，I_RRAM = ${i.toFixed(1)} µA。`;
+    if (f.operation === 'FORMING' && st === 'PRISTINE') q3 += ` 电压尚未达到 forming 阈值。`;
+    else if (f.operation === 'SET' && st === 'HRS') q3 += ` 电压尚未达到 SET 阈值。`;
+    else if (f.operation === 'RESET' && st === 'LRS') q3 += ` 电压尚未达到 RESET 阈值。`;
+    else q3 += ` 当前条件不足以引起状态转移，器件保持 ${st}。`;
+  } else if (!on) {
+    q3 = `NMOS 截止，无电流路径，器件状态保持（<span class="hl">${st}</span>）。`;
+  } else {
+    q3 = `当前状态：${st}。V_RRAM = ${v.toFixed(2)}V。`;
+  }
+
+  // ── Q4: Sense ──
+  let q4 = '';
+  if (sense) {
+    q4 = `I_read = <span class="hl">${sense.currentUa.toFixed(2)} µA</span>，I_ref = <span class="hl">${sense.referenceUa.toFixed(2)} µA</span>。<br>`;
+    q4 += `Margin = <span class="hl">${(sense.marginUa||0).toFixed(2)} µA</span>。<br>`;
+    q4 += `判定：<span class="hl">${sense.decision}</span>（逻辑 ${sense.decision==='LRS'?'1':'0'}）。`;
+  } else if (f.operation === 'READ' && ['ACTIVE','BIAS_RAMP'].includes(f.phase)) {
+    q4 = `当前为 ${f.phase} 阶段，尚未进入 SENSE。下一步将采样读电流并与参考值比较。`;
+  } else if (f.operation !== 'READ') {
+    q4 = `当前操作为 ${f.operation}，不执行 Sense 判决。`;
+  } else {
+    q4 = `等待 SENSE 阶段…`;
+  }
+
+  document.getElementById('expV').innerHTML = q1;
+  document.getElementById('expC').innerHTML = q2;
+  document.getElementById('expP').innerHTML = q3;
+  document.getElementById('expS').innerHTML = q4;
+}
+
+// ═══════════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════════
+window.addEventListener('resize', () => { if (frames.length > 0) drawWaveform(curIdx); });
+renderEmpty();
+</script>
+</body>
+</html>

@@ -1,0 +1,395 @@
+/**
+ * RRAM Visual Simulator - JavaScript Simulation Engine
+ * Pure JavaScript implementation of the RRAM simulation core
+ */
+
+// ═══════════════════════════════════════════════════════
+// Constants & Configuration
+// ═══════════════════════════════════════════════════════
+
+const PROFILE = {
+  id: 'bipolar_teaching_v1',
+  version: '1.0.0',
+  complianceUa: 50.0,
+  ranges: {
+    vRead: [0.1, 0.2],
+    vSet: [1.5, 2.5],
+    vReset: [-2.5, -1.5],
+    vForm: [3.0, 4.0],
+    rLrs: [10000, 50000],
+    rHrs: [500000, 5000000]
+  },
+  vth: 0.7  // NMOS threshold voltage
+};
+
+const PULSE_PARAMS = {
+  FORMING: { amplitude: 3.5, width: 100, ramp: 10 },
+  READ: { amplitude: 0.15, width: 50, ramp: 5 },
+  SET: { amplitude: 2.0, width: 100, ramp: 10 },
+  RESET: { amplitude: 2.0, width: 100, ramp: 10 }
+};
+
+// ═══════════════════════════════════════════════════════
+// Simulation State
+// ═══════════════════════════════════════════════════════
+
+let simState = {
+  deviceState: 'PRISTINE',
+  formingDone: false,
+  frames: [],
+  frameCounter: 0,
+  timeNs: 0
+};
+
+// ═══════════════════════════════════════════════════════
+// Core Simulation Functions
+// ═══════════════════════════════════════════════════════
+
+function computeTransistorState(wlVoltage, blVoltage, slVoltage) {
+  const vgs = wlVoltage - slVoltage;
+  const isOn = vgs > PROFILE.vth;
+  
+  return {
+    vg: wlVoltage,
+    vs: slVoltage,
+    vd: isOn ? blVoltage : slVoltage,
+    on: isOn,
+    complianceLimitUa: PROFILE.complianceUa
+  };
+}
+
+function computeVRram(blVoltage, transistor, slVoltage) {
+  if (!transistor.on) return 0.0;
+  return blVoltage - slVoltage;
+}
+
+function computeIRram(vRram, rRram, transistorOn) {
+  if (!transistorOn) return 0.0;
+  if (rRram <= 0) throw new Error('RRAM resistance must be positive');
+  return (vRram / rRram) * 1e6;  // Convert to µA
+}
+
+function applyCompliance(iRram) {
+  if (Math.abs(iRram) > PROFILE.complianceUa) {
+    return iRram > 0 ? PROFILE.complianceUa : -PROFILE.complianceUa;
+  }
+  return iRram;
+}
+
+function getResistanceForState(state) {
+  if (state === 'PRISTINE') return 1e9;
+  if (state === 'LRS') return (PROFILE.ranges.rLrs[0] + PROFILE.ranges.rLrs[1]) / 2;
+  return (PROFILE.ranges.rHrs[0] + PROFILE.ranges.rHrs[1]) / 2;
+}
+
+function determineStateTransition(currentState, vRram, iRram, operation, formingDone) {
+  if (currentState === 'PRISTINE') {
+    if (operation === 'FORMING') {
+      const [fMin, fMax] = PROFILE.ranges.vForm;
+      if (fMin <= Math.abs(vRram) && Math.abs(vRram) <= fMax) {
+        return { state: 'LRS', formingDone: true };
+      }
+    }
+    return { state: currentState, formingDone };
+  }
+  
+  if (operation === 'SET' && currentState === 'HRS') {
+    const [sMin, sMax] = PROFILE.ranges.vSet;
+    if (sMin <= vRram && vRram <= sMax) {
+      return { state: 'LRS', formingDone };
+    }
+  }
+  
+  if (operation === 'RESET' && currentState === 'LRS') {
+    const [rMin, rMax] = PROFILE.ranges.vReset;
+    if (rMin <= vRram && vRram <= rMax) {
+      return { state: 'HRS', formingDone };
+    }
+  }
+  
+  return { state: currentState, formingDone };
+}
+
+function computeSense(iRram, state) {
+  const vRead = (PROFILE.ranges.vRead[0] + PROFILE.ranges.vRead[1]) / 2;
+  const rLrs = (PROFILE.ranges.rLrs[0] + PROFILE.ranges.rLrs[1]) / 2;
+  const rHrs = (PROFILE.ranges.rHrs[0] + PROFILE.ranges.rHrs[1]) / 2;
+  const iLrs = (vRead / rLrs) * 1e6;
+  const iHrs = (vRead / rHrs) * 1e6;
+  const iRef = (iLrs + iHrs) / 2;
+  
+  const decision = Math.abs(iRram) > iRef ? 'LRS' : 'HRS';
+  const margin = Math.abs(Math.abs(iRram) - iRef);
+  
+  return {
+    currentUa: iRram,
+    referenceUa: iRef,
+    decision,
+    marginUa: margin
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+// Frame Generation
+// ═══════════════════════════════════════════════════════
+
+function computeFrame(operation, phase, nodes, selectedCell, currentState, formingDone) {
+  const frameId = `frame-${++simState.frameCounter.toString().padStart(6, '0')}`;
+  simState.timeNs += 10.0;
+  
+  const row = selectedCell.row;
+  const col = selectedCell.col;
+  
+  const wlVoltage = nodes.wl[row] || 0.0;
+  const blVoltage = nodes.bl[col] || 0.0;
+  const slVoltage = nodes.sl[col] || 0.0;
+  
+  // Step 1: Transistor state
+  const transistor = computeTransistorState(wlVoltage, blVoltage, slVoltage);
+  
+  // Step 2: V_RRAM
+  const vRram = computeVRram(blVoltage, transistor, slVoltage);
+  
+  // Step 3: Current resistance
+  let rRram = getResistanceForState(currentState);
+  
+  // Step 4: I_RRAM
+  let iRram = computeIRram(vRram, rRram, transistor.on);
+  
+  // Step 5: Apply compliance
+  iRram = applyCompliance(iRram);
+  
+  // Step 6: State transition (only in ACTIVE/HOLD phases)
+  let newState = currentState;
+  let newFormingDone = formingDone;
+  
+  if (phase === 'ACTIVE' || phase === 'HOLD') {
+    const transition = determineStateTransition(currentState, vRram, iRram, operation, formingDone);
+    newState = transition.state;
+    newFormingDone = transition.formingDone;
+    
+    if (newState !== currentState) {
+      rRram = getResistanceForState(newState);
+      iRram = computeIRram(vRram, rRram, transistor.on);
+      iRram = applyCompliance(iRram);
+    }
+  }
+  
+  // Step 7: Sense (only in SENSE phase)
+  let sense = null;
+  if (phase === 'SENSE') {
+    sense = computeSense(iRram, newState);
+  }
+  
+  // Step 8: Peripheral circuit info
+  const peripheral = {
+    wl_driver: {
+      voltages: nodes.wl,
+      selected: row,
+      active: wlVoltage > 0
+    },
+    bl_driver: {
+      voltages: nodes.bl,
+      selected: col,
+      active: Math.abs(blVoltage) > 0,
+      compliance_ua: (operation === 'FORMING' || operation === 'SET') ? PROFILE.complianceUa : null
+    },
+    sl_driver: {
+      voltages: nodes.sl,
+      selected: col
+    }
+  };
+  
+  if (sense && (operation === 'READ' || operation === 'VERIFY')) {
+    peripheral.sense_amp = {
+      reference_ua: sense.referenceUa,
+      decision: sense.decision,
+      margin_ua: sense.marginUa
+    };
+  }
+  
+  // Step 9: Diagnostics
+  const diagnostics = generateDiagnostics(operation, phase, vRram, iRram, rRram, wlVoltage, blVoltage, slVoltage, transistor.on, newState, newFormingDone);
+  
+  return {
+    frameId,
+    timeNs: simState.timeNs,
+    operation,
+    phase,
+    selectedCell,
+    nodes,
+    cell: {
+      transistor,
+      rram: {
+        v: vRram,
+        i: iRram,
+        r: rRram,
+        state: newState,
+        formingDone: newFormingDone,
+        gapNm: null,
+        filamentProxy: null,
+        temperatureK: null
+      }
+    },
+    sense,
+    model: {
+      fidelity: 'F0',
+      profileId: PROFILE.id,
+      profileVersion: PROFILE.version,
+      seed: 42
+    },
+    peripheral,
+    diagnostics,
+    checks: []
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+// Diagnostics
+// ═══════════════════════════════════════════════════════
+
+function generateDiagnostics(operation, phase, vRram, iRram, rRram, wlVoltage, blVoltage, slVoltage, transistorOn, state, formingDone) {
+  const faults = [];
+  let health = 'healthy';
+  const recommendations = [];
+  
+  // Check transistor
+  if (!transistorOn && (operation === 'FORMING' || operation === 'SET' || operation === 'RESET')) {
+    faults.push({
+      fault_type: 'wl_not_enabled',
+      severity: 'error',
+      message: `WL voltage (${wlVoltage.toFixed(2)}V) below threshold`,
+      attribution: '字线驱动故障'
+    });
+    health = 'warning';
+    recommendations.push('增加字线电压至阈值以上（建议 1.8V）');
+  }
+  
+  // Check compliance
+  if ((operation === 'FORMING' || operation === 'SET') && Math.abs(iRram) >= PROFILE.complianceUa) {
+    health = 'warning';
+    recommendations.push('电流达到限制值，注意器件保护');
+  }
+  
+  // Check polarity
+  if (operation === 'SET' && vRram < 0) {
+    faults.push({
+      fault_type: 'wrong_bias_polarity',
+      severity: 'error',
+      message: `SET requires positive voltage, got ${vRram.toFixed(2)}V`,
+      attribution: '偏置配置错误'
+    });
+    health = 'critical';
+    recommendations.push('检查偏置配置，确保极性正确');
+  }
+  
+  if (operation === 'RESET' && vRram > 0) {
+    faults.push({
+      fault_type: 'wrong_bias_polarity',
+      severity: 'error',
+      message: `RESET requires negative voltage, got ${vRram.toFixed(2)}V`,
+      attribution: '偏置配置错误'
+    });
+    health = 'critical';
+    recommendations.push('检查偏置配置，确保极性正确');
+  }
+  
+  if (recommendations.length === 0) {
+    recommendations.push('器件状态正常，继续当前操作');
+  }
+  
+  return {
+    health,
+    faults,
+    recommendations
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+// Operation Execution
+// ═══════════════════════════════════════════════════════
+
+function computeBiasForOperation(operation, targetRow, targetCol, phase, pulseAmplitude) {
+  const wl = [0, 0, 0, 0];
+  const bl = [0, 0, 0, 0];
+  const sl = [0, 0, 0, 0];
+  
+  if (phase === 'PREPARE' || phase === 'RELEASE' || phase === 'COMPLETE') {
+    return { wl, bl, sl };
+  }
+  
+  // Selected WL: turn ON access transistor
+  wl[targetRow] = 1.8;
+  
+  // Selected BL: operation voltage
+  if (['BIAS_RAMP', 'ACTIVE', 'HOLD', 'SENSE'].includes(phase)) {
+    if (operation === 'FORMING') {
+      bl[targetCol] = pulseAmplitude;
+    } else if (operation === 'SET') {
+      bl[targetCol] = pulseAmplitude;
+    } else if (operation === 'RESET') {
+      bl[targetCol] = -pulseAmplitude;
+    } else if (operation === 'READ' || operation === 'VERIFY') {
+      bl[targetCol] = pulseAmplitude;
+    }
+  }
+  
+  // Selected SL: ground
+  sl[targetCol] = 0.0;
+  
+  return { wl, bl, sl };
+}
+
+function executeOperation(operation, target) {
+  const phases = getPhaseSequence(operation);
+  const pulseParams = PULSE_PARAMS[operation];
+  const frames = [];
+  
+  for (const phase of phases) {
+    const nodes = computeBiasForOperation(operation, target.row, target.col, phase, pulseParams.amplitude);
+    
+    const frame = computeFrame(
+      operation,
+      phase,
+      nodes,
+      target,
+      simState.deviceState,
+      simState.formingDone
+    );
+    
+    frames.push(frame);
+    
+    // Update simulation state
+    simState.deviceState = frame.cell.rram.state;
+    simState.formingDone = frame.cell.rram.formingDone;
+    simState.frames.push(frame);
+  }
+  
+  return frames;
+}
+
+function getPhaseSequence(operation) {
+  if (operation === 'READ') {
+    return ['PREPARE', 'BIAS_RAMP', 'ACTIVE', 'SENSE', 'RELEASE', 'COMPLETE'];
+  }
+  return ['PREPARE', 'BIAS_RAMP', 'ACTIVE', 'HOLD', 'RELEASE', 'COMPLETE'];
+}
+
+function resetSimulation() {
+  simState = {
+    deviceState: 'PRISTINE',
+    formingDone: false,
+    frames: [],
+    frameCounter: 0,
+    timeNs: 0
+  };
+}
+
+// Export for use in HTML
+window.Simulator = {
+  PROFILE,
+  simState,
+  executeOperation,
+  resetSimulation,
+  computeFrame
+};
