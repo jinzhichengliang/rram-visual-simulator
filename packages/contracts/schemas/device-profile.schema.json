@@ -1,0 +1,143 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rram-simulator://schemas/device-profile.schema.json",
+  "title": "DeviceProfile",
+  "description": "RRAM device configuration including polarity, thresholds, and operating ranges.",
+  "type": "object",
+  "required": [
+    "id",
+    "version",
+    "stackOrientation",
+    "vRramSignConvention",
+    "setPolarity",
+    "resetPolarity",
+    "logicMap",
+    "ranges",
+    "complianceUa",
+    "tolerances"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique profile identifier"
+    },
+    "version": {
+      "type": "string",
+      "description": "Profile version (semver or date-based)"
+    },
+    "stackOrientation": {
+      "type": "string",
+      "enum": ["BL-RRAM-NMOS-SL", "BL-NMOS-RRAM-SL"],
+      "description": "Physical stack orientation"
+    },
+    "vRramSignConvention": {
+      "type": "string",
+      "enum": ["V(top)-V(bottom)", "V(bottom)-V(top)"],
+      "description": "Sign convention for V_RRAM calculation"
+    },
+    "setPolarity": {
+      "type": "string",
+      "enum": ["V_RRAM > 0", "V_RRAM < 0"],
+      "description": "Polarity condition for SET operation"
+    },
+    "resetPolarity": {
+      "type": "string",
+      "enum": ["V_RRAM > 0", "V_RRAM < 0"],
+      "description": "Polarity condition for RESET operation"
+    },
+    "logicMap": {
+      "type": "object",
+      "required": ["LRS", "HRS"],
+      "properties": {
+        "LRS": {
+          "type": "integer",
+          "enum": [0, 1],
+          "description": "Logic value for Low Resistance State"
+        },
+        "HRS": {
+          "type": "integer",
+          "enum": [0, 1],
+          "description": "Logic value for High Resistance State"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ranges": {
+      "type": "object",
+      "required": ["vRead", "vSet", "vReset", "vForm", "rLrs", "rHrs"],
+      "properties": {
+        "vRead": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Read voltage range [min, max] in volts"
+        },
+        "vSet": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "SET voltage range [min, max] in volts"
+        },
+        "vReset": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "RESET voltage range [min, max] in volts"
+        },
+        "vForm": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Forming voltage range [min, max] in volts"
+        },
+        "rLrs": {
+          "type": "array",
+          "items": { "type": "number", "exclusiveMinimum": 0 },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "LRS resistance range [min, max] in ohms"
+        },
+        "rHrs": {
+          "type": "array",
+          "items": { "type": "number", "exclusiveMinimum": 0 },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "HRS resistance range [min, max] in ohms"
+        }
+      },
+      "additionalProperties": false
+    },
+    "complianceUa": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Default compliance current limit in microamps"
+    },
+    "tolerances": {
+      "type": "object",
+      "required": ["readDisturbPct", "currentConservationPct", "crossViewAbs"],
+      "properties": {
+        "readDisturbPct": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum allowed R change during READ (%)"
+        },
+        "currentConservationPct": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Tolerance for array current conservation (%)"
+        },
+        "crossViewAbs": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Absolute tolerance for cross-view value comparison"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

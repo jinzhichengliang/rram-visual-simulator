@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rram-simulator://schemas/check-result.json",
+  "title": "CheckResult",
+  "description": "Single physics invariant check result attached to a FrameState.",
+  "type": "object",
+  "required": ["ruleId", "pass", "severity", "message"],
+  "properties": {
+    "ruleId": {
+      "type": "string",
+      "description": "Invariant rule identifier, e.g. INV-001",
+      "pattern": "^INV-[0-9]{3}$"
+    },
+    "pass": {
+      "type": "boolean",
+      "description": "Whether this invariant passed for the frame"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "warning", "error", "critical"],
+      "description": "Severity level when invariant fails"
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable explanation of the check result"
+    },
+    "details": {
+      "type": "object",
+      "description": "Optional structured details (expected vs actual, etc.)",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

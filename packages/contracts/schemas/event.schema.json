@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rram-simulator://schemas/event.schema.json",
+  "title": "SimulatorEvent",
+  "description": "Semantic event emitted during simulation. Events drive state transitions and UI updates.",
+  "type": "object",
+  "required": ["eventId", "eventType", "timeNs", "frameId"],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "description": "Unique event identifier"
+    },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "OPERATION_STARTED",
+        "BIAS_APPLIED",
+        "TRANSISTOR_ON",
+        "TRANSISTOR_OFF",
+        "COMPLIANCE_ACTIVE",
+        "DEVICE_STATE_CHANGED",
+        "SENSE_SAMPLED",
+        "VERIFY_DECIDED",
+        "CHECK_FAILED",
+        "OPERATION_COMPLETED"
+      ],
+      "description": "Type of semantic event"
+    },
+    "timeNs": {
+      "type": "number",
+      "description": "Event timestamp in nanoseconds",
+      "minimum": 0
+    },
+    "frameId": {
+      "type": "string",
+      "description": "FrameState ID associated with this event"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Event-specific data",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

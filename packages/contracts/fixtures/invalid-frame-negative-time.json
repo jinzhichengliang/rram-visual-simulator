@@ -1,0 +1,33 @@
+{
+  "frameId": "frame-invalid-001",
+  "timeNs": -1,
+  "operation": "UNKNOWN_OP",
+  "phase": "PREPARE",
+  "nodes": {
+    "wl": [0],
+    "bl": [0],
+    "sl": [0]
+  },
+  "cell": {
+    "transistor": {
+      "vg": 0,
+      "vs": 0,
+      "vd": 0,
+      "on": false
+    },
+    "rram": {
+      "v": 0,
+      "i": 0,
+      "r": -100,
+      "state": "PRISTINE",
+      "formingDone": false
+    }
+  },
+  "model": {
+    "fidelity": "F0",
+    "profileId": "test",
+    "profileVersion": "1.0.0",
+    "seed": 42
+  },
+  "checks": []
+}

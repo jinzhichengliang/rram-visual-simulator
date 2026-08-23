@@ -1,0 +1,23 @@
+{
+  "id": "bipolar_teaching_v1",
+  "version": "1.0.0",
+  "stackOrientation": "BL-RRAM-NMOS-SL",
+  "vRramSignConvention": "V(top)-V(bottom)",
+  "setPolarity": "V_RRAM > 0",
+  "resetPolarity": "V_RRAM < 0",
+  "logicMap": { "LRS": 1, "HRS": 0 },
+  "ranges": {
+    "vRead": [0.1, 0.2],
+    "vSet": [1.5, 2.5],
+    "vReset": [-2.5, -1.5],
+    "vForm": [3.0, 4.0],
+    "rLrs": [10000, 50000],
+    "rHrs": [500000, 5000000]
+  },
+  "complianceUa": 50,
+  "tolerances": {
+    "readDisturbPct": 1.0,
+    "currentConservationPct": 5.0,
+    "crossViewAbs": 0.001
+  }
+}

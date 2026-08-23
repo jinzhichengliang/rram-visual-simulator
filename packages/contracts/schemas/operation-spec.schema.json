@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rram-simulator://schemas/operation-spec.schema.json",
+  "title": "OperationSpec",
+  "description": "Specification for a single RRAM operation (forming, read, set, reset, verify).",
+  "type": "object",
+  "required": ["type", "target", "biasPolicyId", "pulse"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["FORMING", "READ", "SET", "RESET", "VERIFY"],
+      "description": "Operation type"
+    },
+    "target": {
+      "type": "object",
+      "required": ["row", "col"],
+      "properties": {
+        "row": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Target array row index"
+        },
+        "col": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Target array column index"
+        }
+      },
+      "additionalProperties": false
+    },
+    "biasPolicyId": {
+      "type": "string",
+      "description": "Reference to bias policy configuration"
+    },
+    "pulse": {
+      "type": "object",
+      "required": ["amplitudeV", "widthNs", "rampNs"],
+      "properties": {
+        "amplitudeV": {
+          "type": "number",
+          "description": "Pulse amplitude in volts"
+        },
+        "widthNs": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Pulse width in nanoseconds"
+        },
+        "rampNs": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Ramp time in nanoseconds"
+        }
+      },
+      "additionalProperties": false
+    },
+    "complianceUa": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Compliance current limit in microamps (for FORMING/SET)"
+    },
+    "verifyPolicyId": {
+      "type": "string",
+      "description": "Reference to verify policy (for VERIFY operations)"
+    }
+  },
+  "additionalProperties": false
+}

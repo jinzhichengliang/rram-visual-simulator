@@ -1,0 +1,218 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rram-simulator://schemas/frame-state.schema.json",
+  "title": "FrameState",
+  "description": "Immutable snapshot of the complete simulator state at a single point in time. All views, explanations, and waveforms derive from this single source of truth.",
+  "type": "object",
+  "required": [
+    "frameId",
+    "timeNs",
+    "operation",
+    "phase",
+    "nodes",
+    "cell",
+    "model",
+    "checks"
+  ],
+  "properties": {
+    "frameId": {
+      "type": "string",
+      "description": "Unique frame identifier"
+    },
+    "timeNs": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Simulation time in nanoseconds"
+    },
+    "operation": {
+      "type": "string",
+      "enum": ["PRISTINE", "FORMING", "READ", "SET", "RESET", "VERIFY"],
+      "description": "Current or last operation"
+    },
+    "phase": {
+      "type": "string",
+      "enum": ["PREPARE", "BIAS_RAMP", "ACTIVE", "HOLD", "RELEASE", "SENSE", "COMPLETE"],
+      "description": "Current phase within the operation"
+    },
+    "selectedCell": {
+      "type": "object",
+      "required": ["row", "col"],
+      "properties": {
+        "row": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Selected array row"
+        },
+        "col": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Selected array column"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Currently selected cell (null if none)"
+    },
+    "nodes": {
+      "type": "object",
+      "required": ["wl", "bl", "sl"],
+      "properties": {
+        "wl": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "Word line voltages in volts, indexed by row"
+        },
+        "bl": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "Bit line voltages in volts, indexed by column"
+        },
+        "sl": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "Source line voltages in volts, indexed by column"
+        },
+        "internal": {
+          "type": "object",
+          "additionalProperties": { "type": "number" },
+          "description": "Optional internal node voltages"
+        }
+      },
+      "additionalProperties": false
+    },
+    "cell": {
+      "type": "object",
+      "required": ["transistor", "rram"],
+      "properties": {
+        "transistor": {
+          "type": "object",
+          "required": ["vg", "vs", "vd", "on"],
+          "properties": {
+            "vg": {
+              "type": "number",
+              "description": "Gate voltage in volts"
+            },
+            "vs": {
+              "type": "number",
+              "description": "Source voltage in volts"
+            },
+            "vd": {
+              "type": "number",
+              "description": "Drain voltage in volts"
+            },
+            "on": {
+              "type": "boolean",
+              "description": "Whether transistor is conducting"
+            },
+            "complianceLimitUa": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Compliance current limit in microamps"
+            }
+          },
+          "additionalProperties": false
+        },
+        "rram": {
+          "type": "object",
+          "required": ["v", "i", "r", "state", "formingDone"],
+          "properties": {
+            "v": {
+              "type": "number",
+              "description": "Voltage across RRAM in volts"
+            },
+            "i": {
+              "type": "number",
+              "description": "Current through RRAM in microamps"
+            },
+            "r": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "RRAM resistance in ohms"
+            },
+            "state": {
+              "type": "string",
+              "enum": ["PRISTINE", "HRS", "LRS"],
+              "description": "Current device state"
+            },
+            "formingDone": {
+              "type": "boolean",
+              "description": "Whether forming has been completed"
+            },
+            "gapNm": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Filament gap size in nanometers (F1+ models)"
+            },
+            "filamentProxy": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Filament connectivity proxy 0-1 (F1+ models)"
+            },
+            "temperatureK": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Device temperature in Kelvin (F1+ models)"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "sense": {
+      "type": "object",
+      "required": ["currentUa", "referenceUa"],
+      "properties": {
+        "currentUa": {
+          "type": "number",
+          "description": "Sense current in microamps"
+        },
+        "referenceUa": {
+          "type": "number",
+          "description": "Reference current in microamps"
+        },
+        "decision": {
+          "type": "string",
+          "enum": ["HRS", "LRS", "UNKNOWN"],
+          "description": "Sense amplifier decision"
+        },
+        "marginUa": {
+          "type": "number",
+          "description": "Sense margin in microamps (|Iread - Iref|)"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Sense amplifier state (null if not in SENSE phase)"
+    },
+    "model": {
+      "type": "object",
+      "required": ["fidelity", "profileId", "profileVersion", "seed"],
+      "properties": {
+        "fidelity": {
+          "type": "string",
+          "enum": ["F0", "F1", "F2", "F3"],
+          "description": "Model fidelity level"
+        },
+        "profileId": {
+          "type": "string",
+          "description": "Device profile ID"
+        },
+        "profileVersion": {
+          "type": "string",
+          "description": "Device profile version"
+        },
+        "seed": {
+          "type": "integer",
+          "description": "Random seed for reproducibility"
+        }
+      },
+      "additionalProperties": false
+    },
+    "checks": {
+      "type": "array",
+      "items": { "$ref": "check-result.schema.json" },
+      "description": "Physics invariant check results for this frame"
+    }
+  },
+  "additionalProperties": false
+}
