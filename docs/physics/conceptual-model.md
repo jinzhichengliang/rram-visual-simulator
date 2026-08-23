@@ -1,21 +1,21 @@
 # Physics Assumptions (Conceptual Model)
 
-> S00 占位。S02 实现 Teaching Model 时填充具体假设。
+> Placeholder for S00. Fill in specific assumptions when implementing Teaching Model in S02.
 
-## 当前状态
+## Current Status
 
-本阶段（S00）不包含任何 RRAM 物理逻辑。以下仅为后续开发的概念性框架记录。
+This phase (S00) does not contain any RRAM physics logic. The following is only a conceptual framework record for subsequent development.
 
-## 待定义（S02+）
+## To Be Defined (S02+)
 
-- F0 教学模型的状态转移规则
-- NMOS 简化模型（ON/OFF gating）
-- Forming / SET / RESET / READ 的阈值条件
-- Compliance 限流行为
-- Sense amplifier 判决逻辑
+- State transition rules for F0 teaching model
+- NMOS simplified model (ON/OFF gating)
+- Threshold conditions for Forming / SET / RESET / READ
+- Compliance current limiting behavior
+- Sense amplifier decision logic
 
-## 原则
+## Principles
 
-1. 所有物理假设必须写入 DeviceProfile，不硬编码
-2. 示意参数与工艺参数分离，始终标注 fidelity level
-3. 每个模型版本必须记录状态方程来源
+1. All physics assumptions must be written into DeviceProfile, not hardcoded
+2. Schematic parameters separated from process parameters, always label fidelity level
+3. Each model version must record the source of state equations

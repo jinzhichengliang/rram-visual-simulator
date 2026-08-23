@@ -73,10 +73,10 @@ header h1{font-size:16px;font-weight:600}
 
 <div class="timeline">
   <span style="font-size:11px;color:var(--td)">Timeline</span>
-  <button class="btn" onclick="stepBack()" id="btnBack" disabled title="回退一帧">◂</button>
+  <button class="btn" onclick="stepBack()" id="btnBack" disabled title="Step Back">◂</button>
   <input type="range" id="slider" min="0" max="0" value="0" oninput="scrub(+this.value)">
-  <button class="btn" onclick="stepForward()" id="btnForward" disabled title="前进一帧">▸</button>
-  <button class="btn" onclick="resetTimeline()" id="btnReset" disabled title="重置到第一帧">↺</button>
+  <button class="btn" onclick="stepForward()" id="btnForward" disabled title="Step Forward">▸</button>
+  <button class="btn" onclick="resetTimeline()" id="btnReset" disabled title="Reset Timeline">↺</button>
   <span style="font-size:11px;color:var(--td);min-width:100px;text-align:right" id="tlLabel">Frame 0 / 0</span>
 </div>
 
@@ -84,23 +84,23 @@ header h1{font-size:16px;font-weight:600}
 
 <div class="grid">
   <div class="panel">
-    <div class="ptitle"><span class="dot"></span>Device View — RRAM 两端发生了什么</div>
+    <div class="ptitle"><span class="dot"></span>Device View — What happens across RRAM</div>
     <svg class="vsvg" id="devSvg" viewBox="0 0 400 200"></svg>
   </div>
   <div class="panel">
-    <div class="ptitle"><span class="dot"></span>1T1R Cell View — BL / WL / SL 如何控制一个 bit</div>
+    <div class="ptitle"><span class="dot"></span>1T1R Cell View — How BL/WL/SL control a bit</div>
     <svg class="vsvg" id="cellSvg" viewBox="0 0 400 200"></svg>
   </div>
   <div class="panel">
-    <div class="ptitle"><span class="dot"></span>Array View — 4×4 阵列</div>
+    <div class="ptitle"><span class="dot"></span>Array View — 4×4 Array</div>
     <svg class="vsvg" id="arrSvg" viewBox="0 0 400 200"></svg>
   </div>
   <div class="panel">
-    <div class="ptitle"><span class="dot"></span>Filament View — 导电细丝可视化</div>
+    <div class="ptitle"><span class="dot"></span>Filament View — Conductive Filament Visualization</div>
     <svg class="vsvg" id="filSvg" viewBox="0 0 400 220"></svg>
   </div>
   <div class="panel span2">
-    <div class="ptitle"><span class="dot"></span>Circuit View — 外围电路 (V0.3)</div>
+    <div class="ptitle"><span class="dot"></span>Circuit View — Peripheral Circuit (V0.3)</div>
     <div id="circuitInfo" style="font-size:11px;line-height:1.8;color:var(--td)">
       <div>WL Driver: <span id="wlDriver" style="color:var(--tx)">—</span></div>
       <div>BL Driver: <span id="blDriver" style="color:var(--tx)">—</span></div>
@@ -109,7 +109,7 @@ header h1{font-size:16px;font-weight:600}
     </div>
   </div>
   <div class="panel span2">
-    <div class="ptitle"><span class="dot"></span>Diagnostics — 故障诊断 (V0.6)</div>
+    <div class="ptitle"><span class="dot"></span>Diagnostics — Fault Diagnosis (V0.6)</div>
     <div id="diagInfo" style="font-size:11px;line-height:1.8">
       <div>Health: <span id="diagHealth" style="color:var(--gn)">—</span></div>
       <div>Faults: <span id="diagFaults" style="color:var(--tx)">0</span></div>
@@ -117,7 +117,7 @@ header h1{font-size:16px;font-weight:600}
     </div>
   </div>
   <div class="panel span2">
-    <div class="ptitle"><span class="dot"></span>Waveform View — 时间维度因果证据</div>
+    <div class="ptitle"><span class="dot"></span>Waveform View — Time-Domain Causal Evidence</div>
     <canvas class="wfc" id="wfCanvas"></canvas>
     <div style="display:flex;gap:16px;margin-top:8px;font-size:11px">
       <div style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#6c8cff;border-radius:1px"></span>V_RRAM (V)</div>
@@ -126,12 +126,12 @@ header h1{font-size:16px;font-weight:600}
     </div>
   </div>
   <div class="panel span2">
-    <div class="ptitle"><span class="dot"></span>三问解释器 — 每一步同时回答</div>
+    <div class="ptitle"><span class="dot"></span>Three-Question Explainer — Answers every step</div>
     <div class="expcards">
-      <div class="expc"><div class="expt">① 施加了什么电压？</div><div class="expb" id="expV">等待操作…</div></div>
-      <div class="expc"><div class="expt">② 电流从哪里流？</div><div class="expb" id="expC">等待操作…</div></div>
-      <div class="expc"><div class="expt">③ 器件内部为什么变化？</div><div class="expb" id="expP">等待操作…</div></div>
-      <div class="expc"><div class="expt">④ 系统如何知道操作成功？</div><div class="expb" id="expS">等待操作…</div></div>
+      <div class="expc"><div class="expt">① What voltage is applied?</div><div class="expb" id="expV">Waiting for operation…</div></div>
+      <div class="expc"><div class="expt">② Where does current flow?</div><div class="expb" id="expC">Waiting for operation…</div></div>
+      <div class="expc"><div class="expt">③ Why does the device change internally?</div><div class="expb" id="expP">Waiting for operation…</div></div>
+      <div class="expc"><div class="expt">④ How does the system know the operation succeeded?</div><div class="expb" id="expS">Waiting for operation…</div></div>
     </div>
   </div>
   <div class="panel span2">
@@ -148,7 +148,7 @@ header h1{font-size:16px;font-weight:600}
         <div style="color:var(--td);margin-bottom:8px">成就徽章</div>
         <div id="learnBadges" style="color:var(--tx)">暂无徽章</div>
         <div style="margin-top:12px">
-          <button class="btn" onclick="loadNextScenario()" style="font-size:10px;padding:4px 10px">下一个学习场景</button>
+          <button class="btn" onclick="loadNextScenario()" style="font-size:10px;padding:4px 10px">下一个Learning scenario</button>
         </div>
       </div>
     </div>
@@ -156,9 +156,7 @@ header h1{font-size:16px;font-weight:600}
 </div>
 
 <script>
-
-
-
+const API = 'http://127.0.0.1:8000';
 let frames = [];
 let curIdx = 0;
 
@@ -166,27 +164,34 @@ let curIdx = 0;
 // API Client — single source of truth
 // ═══════════════════════════════════════════════════════
 
-function doOp(op) {
+async function doOp(op) {
   try {
     hideErr();
-    const newFrames = executeOperation(op, { row: 0, col: 0 });
+    const res = await fetch(`${API}/api/operation`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({operation: op, target: {row:0, col:0}})
+    });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    const newFrames = await res.json();
     frames = frames.concat(newFrames);
+    // Jump to ACTIVE phase (index 2 of the 6-frame operation), not COMPLETE
     curIdx = frames.length - newFrames.length + 2;
     render();
   } catch(e) {
-    showErr(`操作失败: ${e.message}`);
+    showErr(`Operation failed: ${e.message}。请确认 API 正在运行 (http://127.0.0.1:8000)`);
   }
 }
 
-function resetAll() {
+async function resetAll() {
   try {
     hideErr();
-    resetSimulation();
+    await fetch(`${API}/api/reset`, {method:'POST'});
     frames = [];
     curIdx = 0;
     render();
   } catch(e) {
-    showErr(`重置失败: ${e.message}`);
+    showErr(`Reset failed: ${e.message}`);
   }
 }
 
@@ -203,10 +208,10 @@ async function switchModel(model) {
     document.getElementById('modelBadge').textContent = model;
     document.getElementById('btnF0').style.background = model === 'F0' ? 'var(--ac)' : 'var(--s2)';
     document.getElementById('btnF1').style.background = model === 'F1' ? 'var(--ac)' : 'var(--s2)';
-    showErr(`已切换到 ${model} 模型`);
+    showErr(`Switched to ${model} model`);
     setTimeout(hideErr, 2000);
   } catch(e) {
-    showErr(`模型切换失败: ${e.message}`);
+    showErr(`model切换失败: ${e.message}`);
   }
 }
 
@@ -218,14 +223,14 @@ async function loadNextScenario() {
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     const data = await res.json();
     if (data.scenario) {
-      showErr(`学习场景: ${data.scenario.title} - ${data.scenario.description}`);
+      showErr(`Learning scenario: ${data.scenario.title} - ${data.scenario.description}`);
       setTimeout(hideErr, 5000);
     } else {
-      showErr(data.message || '没有更多场景');
+      showErr(data.message || 'No more scenarios');
       setTimeout(hideErr, 3000);
     }
   } catch(e) {
-    showErr(`加载场景失败: ${e.message}`);
+    showErr(`Load scenario failed: ${e.message}`);
   }
 }
 
@@ -344,7 +349,7 @@ function renderEmpty() {
   document.getElementById('btnBack').disabled = true;
   document.getElementById('btnForward').disabled = true;
   document.getElementById('btnReset').disabled = true;
-  ['expV','expC','expP','expS'].forEach(id => document.getElementById(id).innerHTML = '等待操作…');
+  ['expV','expC','expP','expS'].forEach(id => document.getElementById(id).innerHTML = 'Waiting for operation…');
   
   // Reset Circuit View
   document.getElementById('wlDriver').textContent = '—';
